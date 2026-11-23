@@ -5,17 +5,23 @@ A Wiener filter written in pure **MIPS32 assembly** for the MARS simulator. It r
 A **C++ reference model** follows the same steps and rounds at the same points, so the two outputs can be compared value by value.
 
 > Team assignment for *Computer Architecture Lab (CO2008)*, HCMUT, Semester 252 (Spring 2026). **Graded 10/10.**
-> My part: file I/O and the ASCII → double parser.
+> <!-- TODO: your role, e.g. "My part: file I/O and the ASCII → double parser; I also …" -->
 
 ---
 
 ## What it does
 
 ```
-input.txt   (x[n], 10 values) ┐
-desired.txt (d[n], 10 values) ┴─► parse ─► correlate ─► Toeplitz R ─► solve R·h = γ ─► y = h * x ─► MMSE
-                                                                                         │
-                                                                    console + output.txt ◄┘
+input.txt, desired.txt
+   │  parse ASCII → double
+   ▼
+correlation  γxx, γdx
+   │
+   ▼
+Toeplitz R  →  solve R·h = γdx   (Gaussian elimination)
+   │
+   ▼
+y = h * x   →   MMSE   →   console + output.txt
 ```
 
 | Step | MIPS procedure | What happens |
@@ -39,34 +45,53 @@ desired.txt (d[n], 10 values) ┴─► parse ─► correlate ─► Toeplitz R
 ## Run it
 
 **MIPS (MARS 4.5):**
-1. Put `input.txt` and `desired.txt` in the folder you launch MARS from, e.g. copy them from `tests/sample/`.
+1. Copy `input.txt` and `desired.txt` from a test case (e.g. `tests/tc6/`) into the folder you launch MARS from.
 2. Open `src/wiener_filter.asm`, assemble it, and run it.
 3. The result is printed to the console and written to `output.txt`.
 
-**C++ reference:**
-```bash
-cmake -B build && cmake --build build
-./build/wiener_ref tests/sample/input.txt tests/sample/desired.txt output.txt
+Example (`tests/tc6`):
+```
+Filtered output: 1.1 2.1 3.6 1.5 -0.6 -3.8 -2.3 3.4 6.4 5.3
+MMSE: 1.2
 ```
 
-Example (`tests/sample`):
+**C++ reference + test runner:**
+```bash
+cmake -B build && cmake --build build
+tests/run_reference_tests.sh          # runs all test cases, prints PASS/FAIL
 ```
-Filtered output: -0.4 -2.6 2.9 2.7 -0.2 -1.4 -0.8 3.1 4.8 5.0
-MMSE: 4.7
-```
-If the two files do not hold the same number of values, the output is `Error : size not match` (see `tests/size-mismatch`).
+
+---
+
+## Validation
+
+8 test cases (`tests/tc1` to `tests/tc8`); TC3 checks the error path, because its input has 9 values instead of 10.
+
+| Test | MMSE | Note |
+|---|---|---|
+| TC1 | 0.1 | |
+| TC2 | 0.1 | |
+| TC3 | — | `Error : size not match` |
+| TC4 | 0.0 | all-negative signal |
+| TC5 | 0.1 | |
+| TC6 | 1.2 | TC6–TC8 share one desired signal |
+| TC7 | 2.5 | |
+| TC8 | 0.5 | |
+
+The MIPS program and the C++ model give identical outputs on every test case.
 
 ---
 
 ## Design notes & limitations
-- **Rounding to 1 decimal at every step:** the assignment's expected results are given to 1 decimal place, so intermediate values in the convolution and the MMSE are rounded at the same points in both versions.
+- **Problem → fix: rounding.** The first version rounded only the final results, and some outputs came out 0.1 off from the expected values. Rounding the running sum to 1 decimal after every accumulation, in both the convolution and the MMSE, made the results match. The C++ model rounds at exactly the same points, which is what makes a value-by-value comparison possible.
 - **No pivoting:** the Gaussian elimination does not pivot. That is fine here because R is a symmetric Toeplitz autocorrelation matrix, which is positive semi-definite. A general-purpose solver would need partial pivoting, or Levinson–Durbin to take advantage of the Toeplitz structure in O(M²).
+- **Tie-breaking in rounding:** MIPS `round.w.d` rounds ties to even, while C++ `std::round` rounds ties away from zero. The two can disagree on exact .x5 values, for example 0.25.
 - **Fixed size:** the filter length and signal length are both 10, and the parser reads at most 1024 bytes. It does not check bounds, so an input file with more than 10 numbers would write past the end of its array before the size check runs.
 
 ## Repository layout
 ```
 src/wiener_filter.asm       MIPS implementation (MARS)
 reference/wiener_filter.cpp C++ reference model
-tests/sample/               input.txt, desired.txt, expected_output.txt
-tests/size-mismatch/        error-path test
+tests/tcN/                  input.txt, desired.txt, expected_output.txt
+tests/run_reference_tests.sh  runs the C++ model on all test cases
 ```
