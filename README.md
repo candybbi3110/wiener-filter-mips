@@ -78,7 +78,7 @@ tests/run_reference_tests.sh          # runs all test cases, prints PASS/FAIL
 | TC7 | 2.5 | |
 | TC8 | 0.5 | |
 
-**How it was checked:** `tests/run_reference_tests.sh` runs the C++ model automatically on all 8 cases. The MIPS outputs were checked by hand in MARS. For TC2 and TC4–TC8, the saved MARS output matches the C++ output value for value. TC1's saved MARS output was produced by an older build, from before the rounding fix, and still needs to be re-run.
+**How it was checked:** `tests/run_reference_tests.sh` runs the C++ model automatically on all 8 cases and checks both the output and the exit code (0 for valid input, 1 for the TC3 error case). The MIPS outputs were checked by hand in MARS. For TC2 and TC4–TC8, the saved MARS output matches the C++ output value for value. TC1's saved MARS output was produced by an older build, from before the rounding fix, and still needs to be re-run.
 
 **Error path difference:** on a size mismatch, the MIPS program prints `Error : size not match` to the console and exits before it opens `output.txt`. The C++ model writes the message to both the console and the file.
 
