@@ -5,7 +5,7 @@ A Wiener filter written in pure **MIPS32 assembly** for the MARS simulator. It r
 A **C++ reference model** follows the same steps and rounds at the same points, so the two outputs can be compared value by value.
 
 > Team assignment for *Computer Architecture Lab (CO2008)*, HCMUT, Semester 252 (Spring 2026). **Graded 10/10.**
-> <!-- TODO: your role, e.g. "My part: file I/O and the ASCII → double parser; I also …" -->
+> My part: file I/O and the ASCII → double parser.
 
 ---
 
@@ -78,13 +78,15 @@ tests/run_reference_tests.sh          # runs all test cases, prints PASS/FAIL
 | TC7 | 2.5 | |
 | TC8 | 0.5 | |
 
-The MIPS program and the C++ model give identical outputs on every test case.
+**How it was checked:** `tests/run_reference_tests.sh` runs the C++ model automatically on all 8 cases. The MIPS outputs were checked by hand in MARS. For TC2 and TC4–TC8, the saved MARS output matches the C++ output value for value. TC1's saved MARS output was produced by an older build, from before the rounding fix, and still needs to be re-run.
+
+**Error path difference:** on a size mismatch, the MIPS program prints `Error : size not match` to the console and exits before it opens `output.txt`. The C++ model writes the message to both the console and the file.
 
 ---
 
 ## Design notes & limitations
 - **Problem → fix: rounding.** The first version rounded only the final results, and some outputs came out 0.1 off from the expected values. Rounding the running sum to 1 decimal after every accumulation, in both the convolution and the MMSE, made the results match. The C++ model rounds at exactly the same points, which is what makes a value-by-value comparison possible.
-- **No pivoting:** the Gaussian elimination does not pivot. That is fine here because R is a symmetric Toeplitz autocorrelation matrix, which is positive semi-definite. A general-purpose solver would need partial pivoting, or Levinson–Durbin to take advantage of the Toeplitz structure in O(M²).
+- **No pivoting:** the Gaussian elimination does not pivot, and it does not check for a zero pivot. Here R is built from the *biased* autocorrelation estimate, so R = AᵀA / N, where A is the zero-padded convolution matrix of x. That makes R symmetric positive definite whenever x is not all zeros, and elimination without pivoting is numerically stable for such matrices. Its pivots are positive in exact arithmetic. However, R can still be ill-conditioned, an all-zero input would make it singular, and the solver has no guard for either case. A general-purpose solver would add a pivot check or partial pivoting, or use Levinson–Durbin to take advantage of the Toeplitz structure in O(M²).
 - **Tie-breaking in rounding:** MIPS `round.w.d` rounds ties to even, while C++ `std::round` rounds ties away from zero. The two can disagree on exact .x5 values, for example 0.25.
 - **Fixed size:** the filter length and signal length are both 10, and the parser reads at most 1024 bytes. It does not check bounds, so an input file with more than 10 numbers would write past the end of its array before the size check runs.
 
